@@ -32,21 +32,31 @@ function App() {
   }
 
   // Toggle the Understood status (PUT)
+ // Toggle the Understood status (PUT)
   const handleToggleUnderstood = (log) => {
-    // We flip the current boolean value
-    const updatedLog = {
-      ...log,
-      understood: !log.understood
+    // 1. Create a clean payload matching exactly what FastAPI expects
+    const updatePayload = {
+      topic: log.topic,
+      category: log.category,
+      understood: !log.understood // Flip the boolean
     }
 
     fetch(`http://127.0.0.1:8000/logs/${log.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedLog),
+      body: JSON.stringify(updatePayload),
     })
-      .then(response => response.json())
+      .then(async response => {
+        // 2. Explicitly check if the server returned an error (like a 404 or 422)
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Backend validation failed:", errorData);
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
       .then(data => {
-        // Update our local state array by replacing the old log object with the updated one
+        // 3. Update the UI only if the server successfully saved it
         setLogs(logs.map(item => item.id === log.id ? data : item))
       })
       .catch(error => console.error("Error updating log:", error))
