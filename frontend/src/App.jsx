@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react'
 
 function App() {
-  // State for our list of logs
   const [logs, setLogs] = useState([])
-  
-  // State for our form inputs
   const [topic, setTopic] = useState("")
   const [category, setCategory] = useState("Backend")
 
-  // Fetch initial data
+  // Fetch all logs when the page loads
   useEffect(() => {
     fetch("http://127.0.0.1:8000/logs/")
       .then(response => response.json())
@@ -16,38 +13,63 @@ function App() {
       .catch(error => console.error("Error fetching data:", error))
   }, [])
 
-  // Handle form submission
+  // Create a new log (POST)
   const handleSubmit = (e) => {
-    e.preventDefault() // Prevents the browser from refreshing the page
-
-    const newLog = {
-      topic: topic,
-      category: category,
-      understood: false
-    }
+    e.preventDefault()
+    const newLog = { topic, category, understood: false }
 
     fetch("http://127.0.0.1:8000/logs/", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newLog),
     })
       .then(response => response.json())
       .then(data => {
-        // Add the newly created log (returned from FastAPI) to our current list
         setLogs([...logs, data])
-        // Clear the input field for the next entry
         setTopic("")
       })
       .catch(error => console.error("Error creating log:", error))
+  }
+
+  // Toggle the Understood status (PUT)
+  const handleToggleUnderstood = (log) => {
+    // We flip the current boolean value
+    const updatedLog = {
+      ...log,
+      understood: !log.understood
+    }
+
+    fetch(`http://127.0.0.1:8000/logs/${log.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updatedLog),
+    })
+      .then(response => response.json())
+      .then(data => {
+        // Update our local state array by replacing the old log object with the updated one
+        setLogs(logs.map(item => item.id === log.id ? data : item))
+      })
+      .catch(error => console.error("Error updating log:", error))
+  }
+
+  // Remove a log entirely (DELETE)
+  const handleDelete = (id) => {
+    fetch(`http://127.0.0.1:8000/logs/${id}`, {
+      method: "DELETE",
+    })
+      .then(response => response.json())
+      .then(() => {
+        // Filter out the deleted item from our UI view state
+        setLogs(logs.filter(item => item.id !== id))
+      })
+      .catch(error => console.error("Error deleting log:", error))
   }
 
   return (
     <div style={{ padding: "20px", maxWidth: "600px", margin: "0 auto", fontFamily: "sans-serif" }}>
       <h1>My Dev Tracker</h1>
       
-      {/* --- ADD NEW LOG FORM --- */}
+      {/* FORM ELEMENT */}
       <form onSubmit={handleSubmit} style={{ marginBottom: "20px", display: "flex", gap: "10px" }}>
         <input 
           type="text" 
@@ -57,11 +79,7 @@ function App() {
           required
           style={{ flex: 1, padding: "8px" }}
         />
-        <select 
-          value={category} 
-          onChange={(e) => setCategory(e.target.value)}
-          style={{ padding: "8px" }}
-        >
+        <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ padding: "8px" }}>
           <option value="Backend">Backend</option>
           <option value="Frontend">Frontend</option>
           <option value="Database">Database</option>
@@ -71,8 +89,8 @@ function App() {
           Add Log
         </button>
       </form>
-      {/* ------------------------ */}
 
+      {/* DISPLAY LOGS LIST */}
       {logs.length === 0 ? (
         <p>No logs found. Go study something!</p>
       ) : (
@@ -80,13 +98,48 @@ function App() {
           {logs.map((log) => (
             <li key={log.id} style={{ 
               marginBottom: "10px", 
-              padding: "10px", 
+              padding: "15px", 
               border: "1px solid #ccc",
-              borderRadius: "4px"
+              borderRadius: "4px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
             }}>
-              <strong>{log.topic}</strong> ({log.category}) 
-              <br />
-              Status: {log.understood ? "✅ Understood" : "❌ Needs Review"}
+              <div>
+                <strong style={{ textDecoration: log.understood ? "line-through" : "none" }}>
+                  {log.topic}
+                </strong> 
+                <span style={{ marginLeft: "10px", fontSize: "0.85em", color: "#666" }}>
+                  ({log.category})
+                </span>
+              </div>
+              
+              <div style={{ display: "flex", gap: "10px" }}>
+                {/* Checkbox to toggle status */}
+                <label style={{ display: "flex", alignItems: "center", gap: "5px", cursor: "pointer" }}>
+                  <input 
+                    type="checkbox" 
+                    checked={log.understood} 
+                    onChange={() => handleToggleUnderstood(log)} 
+                  />
+                  {log.understood ? "Done" : "Review"}
+                </label>
+
+                {/* Delete Button */}
+                <button 
+                  onClick={() => handleDelete(log.id)}
+                  style={{ 
+                    padding: "4px 8px", 
+                    backgroundColor: "#ff4d4d", 
+                    color: "white", 
+                    border: "none", 
+                    borderRadius: "3px", 
+                    cursor: "pointer" 
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
             </li>
           ))}
         </ul>
