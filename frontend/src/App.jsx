@@ -33,35 +33,40 @@ function App() {
 
   // Toggle the Understood status (PUT)
  // Toggle the Understood status (PUT)
+// Toggle the Understood status (Optimistic UI Update)
   const handleToggleUnderstood = (log) => {
-    // 1. Create a clean payload matching exactly what FastAPI expects
+    // 1. OPTIMISTIC UPDATE: Change the UI instantly
+    const updatedLogs = logs.map(item => 
+      item.id === log.id ? { ...item, understood: !item.understood } : item
+    )
+    setLogs(updatedLogs) // BOOM! Instant visual checkbox toggle.
+
+    // 2. Prepare the clean payload for FastAPI
     const updatePayload = {
       topic: log.topic,
       category: log.category,
-      understood: !log.understood // Flip the boolean
+      understood: !log.understood 
     }
 
+    // 3. Send the update to the backend in the background
     fetch(`http://127.0.0.1:8000/logs/${log.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updatePayload),
     })
-      .then(async response => {
-        // 2. Explicitly check if the server returned an error (like a 404 or 422)
+      .then(response => {
         if (!response.ok) {
-          const errorData = await response.json();
-          console.error("Backend validation failed:", errorData);
-          throw new Error(`HTTP error! status: ${response.status}`);
+          throw new Error("Server rejected the update")
         }
-        return response.json();
+        // We don't even need to parse the response data here because our UI is already updated!
       })
-      .then(data => {
-        // 3. Update the UI only if the server successfully saved it
-        setLogs(logs.map(item => item.id === log.id ? data : item))
+      .catch(error => {
+        console.error("Error updating log:", error)
+        // REVERT: If the server failed, put the old state back so the UI matches the database
+        setLogs(logs) 
+        alert("Network error: Could not save your change.")
       })
-      .catch(error => console.error("Error updating log:", error))
   }
-
   // Remove a log entirely (DELETE)
   const handleDelete = (id) => {
     fetch(`http://127.0.0.1:8000/logs/${id}`, {
