@@ -65,6 +65,8 @@ def update_log(log_id: int, log: schemas.StudyLogCreate, db: Session = Depends(g
 
     db.commit()
     db.refresh(db_log)
+    # This is neeeded!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    return db_log
 
 @app.delete("/logs/{log_id}")
 def delete_log(log_id: int, db: Session = Depends(get_db)):
